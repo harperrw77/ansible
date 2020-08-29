@@ -1,0 +1,39 @@
+- name: Configure webserver with apache (httpd on CentOS) and tls
+  hosts: webservers
+  become: True
+  vars:
+    key_file: /etc/pki/tls/certs/apache-selfsigned.crt
+    cert_file: /etc/pki/tls/private/apache-selfsigned.key
+    conf_file: /etc/httpd/conf.d/localhost.conf
+    server_name: localhost
+  tasks:
+    - name: Install httpd
+      dnf: name=httpd update_cache=yes
+
+    - name: create directories for ssl certificates
+      file: path=/etc/pki/tls/certs state=directory
+
+    - name: create directories for ssl keys
+      file: path=/etc/pki/tls/private state=directory
+
+    - name: create directory for web site html index file
+      file: path=/var/www/ssl-test state=directory
+
+    - name: copy TLS key
+      copy: src=files/httpd.key dest={{ key_file }} owner=root mode=0600
+      notify: restart httpd
+
+    - name: copy TLS certificate
+      copy: src=files/httpd.crt dest={{ cert_file }}
+      notify: restart httpd
+
+    - name: copy httpd config file
+      template: src=templates/httpd.conf dest={{ conf_file  }}
+      notify: restart httpd
+
+    - name: copy index.html
+      template: src=templates/index.html dest=/var/www/ssl-test/index.html mode=0644
+
+  handlers:
+    - name: restart httpd
+      service: name=httpd state=restarted
